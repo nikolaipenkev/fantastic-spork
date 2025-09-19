@@ -1,18 +1,18 @@
 {
   "environments": {
     "local": {
-      "baseUrl": "http://localhost:4000",
-      "basePath": "/fashionhub",
+      "baseUrl": "http://localhost:4000/fashionhub",
+      "basePath": "/",
       "name": "Local Development"
     },
     "staging": {
-      "baseUrl": "https://staging-env",
-      "basePath": "/fashionhub",
+      "baseUrl": "https://staging-env/fashionhub",
+      "basePath": "/",
       "name": "Staging Environment"
     },
     "production": {
-      "baseUrl": "https://pocketaces2.github.io",
-      "basePath": "/fashionhub",
+      "baseUrl": "https://pocketaces2.github.io/fashionhub",
+      "basePath": "/",
       "name": "Production Environment"
     }
   },

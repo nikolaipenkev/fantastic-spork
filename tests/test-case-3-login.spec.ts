@@ -30,14 +30,14 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     const loginButton = await findLoginButton(page, testLogger);
 
     testLogger.step('Filling in credentials');
-    await pageHelper.fillInput([usernameField], credentials.username);
-    await pageHelper.fillInput([passwordField], credentials.password);
+    await pageHelper.fillInput(usernameField, credentials.username);
+    await pageHelper.fillInput(passwordField, credentials.password);
 
     testLogger.step('Taking screenshot with filled form');
     await pageHelper.takeScreenshot('login-form-filled');
 
     testLogger.step('Submitting login form');
-    await pageHelper.clickElement([loginButton]);
+    await pageHelper.clickElement(loginButton);
 
     // Wait for navigation or response
     await page.waitForTimeout(2000); // Allow time for any redirects or dynamic content
@@ -69,10 +69,10 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     const loginButton = await findLoginButton(page, testLogger);
 
     testLogger.step('Attempting login with invalid credentials');
-    await pageHelper.fillInput([usernameField], 'invaliduser');
-    await pageHelper.fillInput([passwordField], 'wrongpassword');
+    await pageHelper.fillInput(usernameField, 'invaliduser');
+    await pageHelper.fillInput(passwordField, 'wrongpassword');
 
-    await pageHelper.clickElement([loginButton]);
+    await pageHelper.clickElement(loginButton);
     await page.waitForTimeout(1000);
 
     testLogger.step('Verifying login failure handling');
