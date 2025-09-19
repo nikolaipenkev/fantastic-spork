@@ -1,0 +1,129 @@
+name: Playwright Tests
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  NODE_VERSION: 'lts/*'
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [production, staging]
+        browser: [chromium, firefox, webkit]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+      
+    - name: Run Playwright tests
+      run: npx playwright test --project=${{ matrix.browser }}
+      env:
+        TEST_ENV: ${{ matrix.environment }}
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report-${{ matrix.environment }}-${{ matrix.browser }}
+        path: |
+          playwright-report/
+          test-results/
+        retention-days: 30
+
+  test-local:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    services:
+      fashionhub:
+        image: pocketaces2/fashionhub-demo-app
+        ports:
+          - 4000:80
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+      
+    - name: Wait for FashionHub app
+      run: |
+        timeout 30 bash -c 'until curl -f http://localhost:4000/fashionhub/; do sleep 2; done'
+        
+    - name: Run Playwright tests against local
+      run: npx playwright test
+      env:
+        TEST_ENV: local
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report-local
+        path: |
+          playwright-report/
+          test-results/
+        retention-days: 30
+
+  test-individual-cases:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-case: [1, 2, 3, 4]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+      
+    - name: Run Test Case ${{ matrix.test-case }}
+      run: npm run test:case${{ matrix.test-case }}
+      env:
+        TEST_ENV: production
+        
+    - name: Upload CSV results (Test Case 4)
+      if: matrix.test-case == 4
+      uses: actions/upload-artifact@v4
+      with:
+        name: github-pr-analysis
+        path: test-results/github-pull-requests.csv
+        retention-days: 30

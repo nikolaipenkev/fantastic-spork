@@ -1,0 +1,51 @@
+{
+  "name": "fantastic-spork",
+  "version": "1.0.0",
+  "description": "Cross-browser automation test suite for FashionHub application using Playwright",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:local": "powershell -Command \"$env:TEST_ENV='local'; npx playwright test\"",
+    "test:staging": "powershell -Command \"$env:TEST_ENV='staging'; npx playwright test\"", 
+    "test:production": "powershell -Command \"$env:TEST_ENV='production'; npx playwright test\"",
+    "test:chrome": "npx playwright test --project=chromium",
+    "test:firefox": "npx playwright test --project=firefox",
+    "test:safari": "npx playwright test --project=webkit",
+    "test:mobile": "npx playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:case1": "npx playwright test test-case-1-console-errors",
+    "test:case2": "npx playwright test test-case-2-link-validation",
+    "test:case3": "npx playwright test test-case-3-login",
+    "test:case4": "npx playwright test test-case-4-github-pr",
+    "install:browsers": "npx playwright install --with-deps",
+    "report": "npx playwright show-report",
+    "build": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nikolaipenkev/fantastic-spork.git"
+  },
+  "keywords": [
+    "playwright",
+    "automation",
+    "testing",
+    "cross-browser",
+    "e2e",
+    "fashionhub"
+  ],
+  "author": "Test Automation Engineer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nikolaipenkev/fantastic-spork/issues"
+  },
+  "homepage": "https://github.com/nikolaipenkev/fantastic-spork#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

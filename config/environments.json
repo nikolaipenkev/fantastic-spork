@@ -1,0 +1,28 @@
+{
+  "environments": {
+    "local": {
+      "baseUrl": "http://localhost:4000",
+      "basePath": "/fashionhub",
+      "name": "Local Development"
+    },
+    "staging": {
+      "baseUrl": "https://staging-env",
+      "basePath": "/fashionhub",
+      "name": "Staging Environment"
+    },
+    "production": {
+      "baseUrl": "https://pocketaces2.github.io",
+      "basePath": "/fashionhub",
+      "name": "Production Environment"
+    }
+  },
+  "github": {
+    "exampleRepo": "https://github.com/appwrite/appwrite/pulls"
+  },
+  "credentials": {
+    "demo": {
+      "username": "demouser",
+      "password": "fashion123"
+    }
+  }
+}
