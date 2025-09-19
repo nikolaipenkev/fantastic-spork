@@ -6,13 +6,11 @@ interface PullRequest {
   name: string;
   createdDate: string;
   author: string;
-  url: string;
-  number: string;
 }
 
 test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
   
-  test('should extract and export GitHub pull requests to CSV', async ({ 
+  test('should extract open pull requests and export to CSV format', async ({ 
     page, 
     configManager, 
     testLogger, 
@@ -23,27 +21,26 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     const githubUrl = config.github.exampleRepo;
     
     testLogger.info('Starting GitHub PR extraction test', { 
-      repository: githubUrl,
-      testObjective: 'Extract and export pull requests to CSV'
+      repository: 'appwrite/appwrite',
+      url: githubUrl,
+      testObjective: 'Extract open PRs and export to CSV with PR name, created date, and author'
     });
 
-    testLogger.step('Navigating to GitHub repository');
+    testLogger.step('Navigating to GitHub pull requests page');
     await pageHelper.navigateToUrl(githubUrl);
+    
+    // Take screenshot of the page
+    await pageHelper.takeScreenshot('github-prs-page');
 
-    testLogger.step('Waiting for GitHub PR interface to load');
-    const prListFound = await page.waitForSelector('[data-testid="pr-list"]', { timeout: 10000 })
-      .then(() => true)
-      .catch(() => {
-        testLogger.warn('PR list not found with data-testid, will try alternative selectors');
-        return false;
-      });
+    testLogger.step('Waiting for pull requests to load');
+    await page.waitForSelector('.js-issue-row, [data-testid="issue-row"], .Box-row', { timeout: 10000 });
 
     testLogger.step('Extracting pull request data');
     const pullRequests = await extractPullRequests(page, testLogger);
     
     testLogger.info(`Pull request extraction completed`, { 
       foundPRs: pullRequests.length,
-      prListInterfaceFound: prListFound
+      repository: 'appwrite/appwrite'
     });
 
     // Verify we found some PRs
@@ -53,8 +50,9 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     const csvContent = generateCSV(pullRequests, testLogger);
     
     testLogger.step('Saving CSV file');
-    const outputDir = 'test-results';
-    const csvFilePath = path.join(outputDir, 'github-pull-requests.csv');
+    const outputDir = 'test-outputs';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const csvFilePath = path.join(outputDir, `appwrite-pull-requests-${timestamp}.csv`);
     
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
@@ -66,14 +64,23 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     testLogger.info('CSV report generated successfully', {
       filePath: csvFilePath,
       totalPRs: pullRequests.length,
-      previewPRs: pullRequests.slice(0, 3).map(pr => ({
-        name: pr.name,
-        author: pr.author,
-        date: pr.createdDate
-      }))
+      fileSize: `${fs.statSync(csvFilePath).size} bytes`
     });
 
-    // Validate CSV content
+    // Display summary in console for product owner
+    console.log('\n=== APPWRITE OPEN PULL REQUESTS SUMMARY ===');
+    console.log(`Repository: appwrite/appwrite`);
+    console.log(`Total Open PRs: ${pullRequests.length}`);
+    console.log(`Generated: ${new Date().toLocaleDateString()}`);
+    console.log(`CSV File: ${csvFilePath}`);
+    console.log('\nFirst 10 Pull Requests:');
+    pullRequests.slice(0, 10).forEach((pr, index) => {
+      console.log(`${index + 1}. ${pr.name}`);
+      console.log(`   Author: ${pr.author} | Created: ${pr.createdDate}`);
+    });
+    console.log('==========================================\n');
+
+    // Validate CSV content structure
     expect(csvContent).toContain('PR Name,Created Date,Author');
     expect(csvContent.split('\n').length).toBeGreaterThan(1);
     
@@ -150,22 +157,18 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       
       // Validate required fields
       const validationResults = {
-        hasName: !!firstPR.name,
-        hasAuthor: !!firstPR.author,
-        hasCreatedDate: !!firstPR.createdDate,
-        hasUrl: !!firstPR.url,
-        hasNumber: !!firstPR.number,
-        urlFormatValid: /^https:\/\/github\.com\/.+\/pull\/\d+$/.test(firstPR.url),
-        numberFormatValid: /^\d+$/.test(firstPR.number)
+        hasName: !!firstPR.name && firstPR.name !== 'Unknown PR',
+        hasAuthor: !!firstPR.author && firstPR.author !== 'Unknown Author',
+        hasCreatedDate: !!firstPR.createdDate && firstPR.createdDate !== 'Unknown Date',
+        nameNotEmpty: firstPR.name.length > 0,
+        authorNotEmpty: firstPR.author.length > 0
       };
 
       testLogger.info('PR data structure validation results', {
         samplePR: {
           name: firstPR.name,
           author: firstPR.author,
-          date: firstPR.createdDate,
-          url: firstPR.url,
-          number: firstPR.number
+          date: firstPR.createdDate
         },
         validationResults
       });
@@ -173,12 +176,9 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       expect(firstPR.name).toBeTruthy();
       expect(firstPR.author).toBeTruthy();
       expect(firstPR.createdDate).toBeTruthy();
-      expect(firstPR.url).toBeTruthy();
-      expect(firstPR.number).toBeTruthy();
-
-      // Validate data formats
-      expect(firstPR.url).toMatch(/^https:\/\/github\.com\/.+\/pull\/\d+$/);
-      expect(firstPR.number).toMatch(/^\d+$/);
+      expect(firstPR.name).not.toBe('Unknown PR');
+      expect(firstPR.author).not.toBe('Unknown Author');
+      expect(firstPR.createdDate).not.toBe('Unknown Date');
       
       testLogger.info('PR data structure validation passed successfully');
     } else {
@@ -192,7 +192,6 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       
       // Multiple selector strategies for different GitHub layouts
       const prSelectors = [
-        '[data-testid="pr-list"] .js-issue-row',
         '.js-issue-row',
         '[data-testid="issue-row"]',
         '.Box-row.js-issue-row',
@@ -219,11 +218,6 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
                              element.querySelector('a[href*="/pull/"]');
           
           const name = titleElement?.textContent?.trim() || 'Unknown PR';
-          const url = titleElement ? (titleElement as HTMLAnchorElement).href : '';
-          
-          // Extract PR number from URL
-          const numberMatch = url.match(/\/pull\/(\d+)/);
-          const number = numberMatch ? numberMatch[1] : '';
 
           // Extract author
           const authorElement = element.querySelector('[data-hovercard-type="user"]') ||
@@ -241,19 +235,21 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
           if (dateElement) {
             const datetime = dateElement.getAttribute('datetime');
             if (datetime) {
-              createdDate = new Date(datetime).toISOString().split('T')[0]; // YYYY-MM-DD format
+              createdDate = new Date(datetime).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
             } else {
               createdDate = dateElement.textContent?.trim() || 'Unknown Date';
             }
           }
 
-          if (name && author && url) {
+          if (name !== 'Unknown PR' && author !== 'Unknown Author') {
             pullRequests.push({
-              name: name.replace(/,/g, ';'), // Replace commas for CSV safety
+              name: name.replace(/"/g, '""'), // Escape quotes for CSV safety
               createdDate,
-              author: author.replace(/,/g, ';'),
-              url,
-              number
+              author: author.replace(/"/g, '""') // Escape quotes for CSV safety
             });
           }
         } catch (error) {
@@ -272,9 +268,9 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
   }
 
   function generateCSV(pullRequests: PullRequest[], testLogger: any): string {
-    const headers = 'PR Name,Created Date,Author,URL,PR Number';
+    const headers = 'PR Name,Created Date,Author';
     const rows = pullRequests.map(pr => 
-      `"${pr.name}","${pr.createdDate}","${pr.author}","${pr.url}","${pr.number}"`
+      `"${pr.name}","${pr.createdDate}","${pr.author}"`
     );
     
     const csvContent = [headers, ...rows].join('\n');

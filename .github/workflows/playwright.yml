@@ -53,9 +53,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       fashionhub:
-        image: pocketaces2/fashionhub-demo-app
+        image: pocketaces2/fashionhub-demo-app:latest
         ports:
-          - 4000:80
+          - 4000:4000
     
     steps:
     - name: Checkout code
@@ -73,11 +73,21 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
       
-    - name: Wait for FashionHub app
+    - name: Wait for FashionHub app to be ready
       run: |
-        timeout 30 bash -c 'until curl -f http://localhost:4000/fashionhub/; do sleep 2; done'
+        echo "Waiting for FashionHub app to start..."
+        timeout 60 bash -c 'until curl -f http://localhost:4000/fashionhub/; do 
+          echo "Waiting for app..."
+          sleep 3
+        done'
+        echo "FashionHub app is ready!"
         
-    - name: Run Playwright tests against local
+    - name: Verify app is accessible
+      run: |
+        curl -I http://localhost:4000/fashionhub/
+        curl -I http://localhost:4000/fashionhub/login.html
+        
+    - name: Run Playwright tests against local Docker container
       run: npx playwright test
       env:
         TEST_ENV: local
@@ -125,5 +135,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: github-pr-analysis
-        path: test-results/github-pull-requests.csv
+        path: test-outputs/appwrite-pull-requests-*.csv
         retention-days: 30

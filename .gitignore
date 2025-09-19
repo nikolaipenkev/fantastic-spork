@@ -14,7 +14,8 @@ node_modules/
 *.webm
 *.har
 
-# CSV outputs
+# Test outputs
+/test-outputs/
 *.csv
 
 # Build outputs
