@@ -27,13 +27,40 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     });
 
     testLogger.step('Navigating to GitHub pull requests page');
-    await pageHelper.navigateToUrl(githubUrl);
+    // Add retry logic for GitHub navigation with exponential backoff
+    let navSuccess = false;
+    let attempt = 0;
+    const maxAttempts = 3;
+    
+    while (!navSuccess && attempt < maxAttempts) {
+      try {
+        await pageHelper.navigateToUrl(githubUrl);
+        navSuccess = true;
+      } catch (error) {
+        attempt++;
+        if (attempt < maxAttempts) {
+          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+          testLogger.warn(`Navigation attempt ${attempt} failed, retrying in ${delay}ms`, { error });
+          await page.waitForTimeout(delay);
+        } else {
+          throw error;
+        }
+      }
+    }
     
     // Take screenshot of the page
     await pageHelper.takeScreenshot('github-prs-page');
 
     testLogger.step('Waiting for pull requests to load');
-    await page.waitForSelector('.js-issue-row, [data-testid="issue-row"], .Box-row', { timeout: 10000 });
+    // Use more robust waiting with multiple fallback selectors
+    await Promise.race([
+      page.waitForSelector('.js-issue-row', { timeout: 15000 }),
+      page.waitForSelector('[data-testid="issue-row"]', { timeout: 15000 }),
+      page.waitForSelector('.Box-row', { timeout: 15000 }),
+      page.waitForLoadState('networkidle', { timeout: 15000 })
+    ]).catch(() => {
+      testLogger.warn('PR list selectors not found, attempting extraction anyway');
+    });
 
     testLogger.step('Extracting pull request data');
     const pullRequests = await extractPullRequests(page, testLogger);
@@ -113,12 +140,29 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     });
 
     testLogger.step('Navigating to GitHub repository');
-    await pageHelper.navigateToUrl(githubUrl, { timeout: 15000 });
+    // Use more robust navigation with multiple retry attempts
+    let pageLoaded = false;
+    let navAttempt = 0;
+    const maxNavAttempts = 3;
     
-    // Should either load successfully or handle rate limiting
-    const pageLoaded = await page.waitForSelector('body', { timeout: 15000 })
-      .then(() => true)
-      .catch(() => false);
+    while (!pageLoaded && navAttempt < maxNavAttempts) {
+      try {
+        await pageHelper.navigateToUrl(githubUrl, { timeout: 20000 });
+        pageLoaded = await page.waitForSelector('body', { timeout: 10000 })
+          .then(() => true)
+          .catch(() => false);
+        
+        if (pageLoaded) break;
+        
+      } catch (error) {
+        navAttempt++;
+        if (navAttempt < maxNavAttempts) {
+          const delay = 2000 * navAttempt; // Progressive delay
+          testLogger.warn(`Navigation attempt ${navAttempt} failed, retrying in ${delay}ms`);
+          await page.waitForTimeout(delay);
+        }
+      }
+    }
     
     testLogger.info('Rate limiting test results', {
       pageLoaded,

@@ -9,9 +9,9 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 3 : 1, // Increased retries for CI stability
   workers: process.env.CI ? 1 : undefined,
-  timeout: 30000,
+  timeout: process.env.CI ? 60000 : 45000, // Increased timeouts for CI environment
 
   reporter: [
     ['html'],

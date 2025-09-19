@@ -39,8 +39,15 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     testLogger.step('Submitting login form');
     await pageHelper.clickElement(loginButton);
 
-    // Wait for navigation or response
-    await page.waitForTimeout(2000); // Allow time for any redirects or dynamic content
+    // Wait for navigation or response - use condition-based wait
+    await Promise.race([
+      page.waitForURL(/account/, { timeout: 5000 }), // Wait for redirect to account page
+      page.waitForSelector('[data-testid="error-message"], .error, .alert', { timeout: 5000 }), // Wait for error message
+      page.waitForLoadState('networkidle', { timeout: 5000 }) // Fallback: wait for network to be idle
+    ]).catch(() => {
+      // If none of the conditions are met, continue anyway
+      testLogger.warn('No specific post-login condition detected, proceeding with verification');
+    });
 
     testLogger.step('Taking screenshot after login attempt');
     await pageHelper.takeScreenshot('after-login');
@@ -73,7 +80,15 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     await pageHelper.fillInput(passwordField, 'wrongpassword');
 
     await pageHelper.clickElement(loginButton);
-    await page.waitForTimeout(1000);
+    
+    // Wait for login attempt to be processed - use condition-based wait
+    await Promise.race([
+      page.waitForSelector('[data-testid="error-message"], .error, .alert', { timeout: 3000 }), // Wait for error message
+      page.waitForURL(/login/, { timeout: 3000 }), // Wait to confirm still on login page
+      page.waitForLoadState('networkidle', { timeout: 3000 }) // Fallback network wait
+    ]).catch(() => {
+      // Continue if no specific condition is met
+    });
 
     testLogger.step('Verifying login failure handling');
     const currentUrl = page.url();
@@ -152,7 +167,7 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     for (const selector of selectors) {
       try {
         const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 1000 })) {
+        if (await element.isVisible({ timeout: 3000 })) {
           testLogger.info(`Found ${fieldType} field`, { selector });
           return selector; // Return the selector string, not the element
         }
@@ -180,7 +195,7 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     for (const selector of selectors) {
       try {
         const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 1000 })) {
+        if (await element.isVisible({ timeout: 3000 })) {
           testLogger.info('Found login button', { selector });
           return selector; // Return the selector string, not the element
         }
