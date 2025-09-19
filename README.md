@@ -123,7 +123,3 @@ npm run test:headed
 # Build verification
 npm run build
 ```
-
----
-
-**Repository**: https://github.com/nikolaipenkev/fantastic-spork  
