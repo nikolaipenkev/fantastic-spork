@@ -119,12 +119,12 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     expect(loginButton).toBeTruthy();
 
     testLogger.step('Verifying form elements are interactive');
-    await expect(usernameField).toBeVisible();
-    await expect(usernameField).toBeEditable();
-    await expect(passwordField).toBeVisible();
-    await expect(passwordField).toBeEditable();
-    await expect(loginButton).toBeVisible();
-    await expect(loginButton).toBeEnabled();
+    await expect(page.locator(usernameField).first()).toBeVisible();
+    await expect(page.locator(usernameField).first()).toBeEditable();
+    await expect(page.locator(passwordField).first()).toBeVisible();
+    await expect(page.locator(passwordField).first()).toBeEditable();
+    await expect(page.locator(loginButton).first()).toBeVisible();
+    await expect(page.locator(loginButton).first()).toBeEnabled();
 
     testLogger.info('All login form elements are present and interactive');
     await pageHelper.takeScreenshot('login-form-validation');
@@ -154,7 +154,7 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
         const element = page.locator(selector).first();
         if (await element.isVisible({ timeout: 1000 })) {
           testLogger.info(`Found ${fieldType} field`, { selector });
-          return element;
+          return selector; // Return the selector string, not the element
         }
       } catch (error) {
         // Continue to next selector
@@ -182,7 +182,7 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
         const element = page.locator(selector).first();
         if (await element.isVisible({ timeout: 1000 })) {
           testLogger.info('Found login button', { selector });
-          return element;
+          return selector; // Return the selector string, not the element
         }
       } catch (error) {
         // Continue to next selector
