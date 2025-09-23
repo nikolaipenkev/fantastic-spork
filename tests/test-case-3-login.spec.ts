@@ -115,7 +115,7 @@ test.describe('Test Case 3: Login Functionality Testing', () => {
     await homePage.navigate();
 
     testLogger.step('Navigating to account/login page via home page link');
-    await homePage.goToLogin(); // This will click Account link
+    await homePage.goToAccount(); // Use simplified method name
 
     testLogger.step('Verifying we reached a login-capable page');
     // Check if we're on login page or account page that has login functionality

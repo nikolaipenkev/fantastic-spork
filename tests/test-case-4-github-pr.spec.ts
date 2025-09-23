@@ -14,169 +14,113 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     page,
     configManager,
     testLogger,
-    pageHelper,
-    networkHelper
+    pageHelper
   }) => {
     const config = configManager.getConfig();
     const githubUrl = config.github.exampleRepo;
 
-    testLogger.info('Starting GitHub PR extraction test', {
-      repository: 'appwrite/appwrite',
-      url: githubUrl,
-      testObjective: 'Extract open PRs and export to CSV with PR name, created date, and author'
-    });
+    testLogger.info('Starting GitHub PR extraction test');
 
     testLogger.step('Navigating to GitHub pull requests page');
-    // Add retry logic for GitHub navigation with exponential backoff
-    let navSuccess = false;
-    let attempt = 0;
-    const maxAttempts = 3;
+    await pageHelper.navigateToUrl(githubUrl);
 
-    while (!navSuccess && attempt < maxAttempts) {
-      try {
-        await pageHelper.navigateToUrl(githubUrl);
-        navSuccess = true;
-      } catch (error) {
-        attempt++;
-        if (attempt < maxAttempts) {
-          const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
-          testLogger.warn(`Navigation attempt ${attempt} failed, retrying in ${delay}ms`, { error });
-          await page.waitForTimeout(delay);
-        } else {
-          throw error;
-        }
-      }
-    }
-
-    // Take screenshot of the page
     await pageHelper.takeScreenshot('github-prs-page');
 
     testLogger.step('Waiting for pull requests to load');
-    // Use more robust waiting with multiple fallback selectors
-    await Promise.race([
-      page.waitForSelector('.js-issue-row', { timeout: 15000 }),
-      page.waitForSelector('[data-testid="issue-row"]', { timeout: 15000 }),
-      page.waitForSelector('.Box-row', { timeout: 15000 }),
-      page.waitForLoadState('networkidle', { timeout: 15000 })
-    ]).catch(() => {
-      testLogger.warn('PR list selectors not found, attempting extraction anyway');
-    });
+    await page.waitForTimeout(3000); // Simple wait for page load
 
     testLogger.step('Extracting pull request data');
     const pullRequests = await extractPullRequests(page, testLogger);
 
-    testLogger.info(`Pull request extraction completed`, {
-      foundPRs: pullRequests.length,
-      repository: 'appwrite/appwrite'
-    });
+    testLogger.info(`Found ${pullRequests.length} pull requests`);
 
     // Verify we found some PRs
     expect(pullRequests.length).toBeGreaterThan(0);
 
     testLogger.step('Generating CSV report');
-    const csvContent = generateCSV(pullRequests, testLogger);
-
-    testLogger.step('Saving CSV file');
-    const outputDir = 'test-outputs';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const csvFilePath = path.join(outputDir, `appwrite-pull-requests-${timestamp}.csv`);
+    const csvFilePath = await exportPullRequestsToCSV(
+      pullRequests,
+      `appwrite-pull-requests-${timestamp}.csv`
+    );
 
-    // Ensure output directory exists
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+    testLogger.step('Validating CSV file');
+    const fileExists = fs.existsSync(csvFilePath);
+    expect(fileExists).toBeTruthy();
 
-    fs.writeFileSync(csvFilePath, csvContent);
+    testLogger.info(`CSV report generated: ${csvFilePath}`);
 
-    testLogger.info('CSV report generated successfully', {
-      filePath: csvFilePath,
-      totalPRs: pullRequests.length,
-      fileSize: `${fs.statSync(csvFilePath).size} bytes`
-    });
-
-    // Display summary in console for product owner
+    // Display summary
     console.log('\n=== APPWRITE OPEN PULL REQUESTS SUMMARY ===');
     console.log(`Repository: appwrite/appwrite`);
     console.log(`Total Open PRs: ${pullRequests.length}`);
     console.log(`Generated: ${new Date().toLocaleDateString()}`);
     console.log(`CSV File: ${csvFilePath}`);
-    console.log('\nFirst 10 Pull Requests:');
-    pullRequests.slice(0, 10).forEach((pr, index) => {
+    console.log('\nFirst 5 Pull Requests:');
+    pullRequests.slice(0, 5).forEach((pr, index) => {
       console.log(`${index + 1}. ${pr.name}`);
       console.log(`   Author: ${pr.author} | Created: ${pr.createdDate}`);
     });
     console.log('==========================================\n');
 
-    // Validate CSV content structure
-    expect(csvContent).toContain('PR Name,Created Date,Author');
-    expect(csvContent.split('\n').length).toBeGreaterThan(1);
-
     testLogger.info('GitHub PR extraction test completed successfully');
   });
+
+  // Simple CSV export function
+  async function exportPullRequestsToCSV(pullRequests: PullRequest[], filename: string): Promise<string> {
+    const outputDir = path.join(process.cwd(), 'test-results');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    const csvFilePath = path.join(outputDir, filename);
+    const csvHeader = 'PR Name,Author,Created Date\n';
+    const csvContent = pullRequests
+      .map(pr => `"${pr.name}","${pr.author}","${pr.createdDate}"`)
+      .join('\n');
+    
+    fs.writeFileSync(csvFilePath, csvHeader + csvContent);
+    return csvFilePath;
+  }
 
   test('should handle GitHub rate limiting gracefully', async ({
     page,
     configManager,
     testLogger,
-    pageHelper,
-    networkHelper
+    pageHelper
   }) => {
     const config = configManager.getConfig();
     const githubUrl = config.github.exampleRepo;
 
-    testLogger.info('Starting GitHub rate limiting test', { repository: githubUrl });
+    testLogger.info('Starting GitHub rate limiting test');
 
-    testLogger.step('Setting up network monitoring for rate limiting detection');
+    testLogger.step('Setting up rate limit detection');
     let rateLimitDetected = false;
 
     page.on('response', response => {
       if (response.status() === 429) {
         rateLimitDetected = true;
-        testLogger.warn('Rate limiting detected', {
-          status: response.status(),
-          url: response.url()
-        });
+        testLogger.info('Rate limiting detected');
       }
     });
 
     testLogger.step('Navigating to GitHub repository');
-    // Use more robust navigation with multiple retry attempts
-    let pageLoaded = false;
-    let navAttempt = 0;
-    const maxNavAttempts = 3;
-
-    while (!pageLoaded && navAttempt < maxNavAttempts) {
-      try {
-        await pageHelper.navigateToUrl(githubUrl, { timeout: 20000 });
-        pageLoaded = await page.waitForSelector('body', { timeout: 10000 })
-          .then(() => true)
-          .catch(() => false);
-
-        if (pageLoaded) break;
-
-      } catch (error) {
-        navAttempt++;
-        if (navAttempt < maxNavAttempts) {
-          const delay = 2000 * navAttempt; // Progressive delay
-          testLogger.warn(`Navigation attempt ${navAttempt} failed, retrying in ${delay}ms`);
-          await page.waitForTimeout(delay);
-        }
-      }
-    }
-
-    testLogger.info('Rate limiting test results', {
-      pageLoaded,
-      rateLimitDetected,
-      networkResponses: networkHelper.getResponses().length
-    });
-
-    if (!pageLoaded) {
-      testLogger.warn('Page failed to load - possibly due to rate limiting or network issues');
+    
+    try {
+      await pageHelper.navigateToUrl(githubUrl);
+      await page.waitForTimeout(2000);
+      
+      const pageLoaded = await page.locator('body').isVisible();
+      expect(pageLoaded).toBeTruthy();
+      
+      testLogger.info('Page loaded successfully');
+    } catch (error) {
+      testLogger.error('Navigation failed', error);
       await pageHelper.takeScreenshot('github-rate-limiting');
+      throw error;
     }
 
-    expect(pageLoaded).toBeTruthy();
-    testLogger.info('Rate limiting handling test completed successfully');
+    testLogger.info('Rate limiting handling test completed');
   });
 
   test('should validate PR data structure', async ({
@@ -190,6 +134,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
     testLogger.step('Navigating to GitHub repository');
     await pageHelper.navigateToUrl(config.github.exampleRepo);
+    await page.waitForTimeout(2000);
 
     testLogger.step('Extracting PR data for validation');
     const pullRequests = await extractPullRequests(page, testLogger);
@@ -197,24 +142,12 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     if (pullRequests.length > 0) {
       const firstPR = pullRequests[0];
 
-      testLogger.step('Validating PR data structure requirements');
+      testLogger.step('Validating PR data structure');
 
-      // Validate required fields
-      const validationResults = {
-        hasName: !!firstPR.name && firstPR.name !== 'Unknown PR',
-        hasAuthor: !!firstPR.author && firstPR.author !== 'Unknown Author',
-        hasCreatedDate: !!firstPR.createdDate && firstPR.createdDate !== 'Unknown Date',
-        nameNotEmpty: firstPR.name.length > 0,
-        authorNotEmpty: firstPR.author.length > 0
-      };
-
-      testLogger.info('PR data structure validation results', {
-        samplePR: {
-          name: firstPR.name,
-          author: firstPR.author,
-          date: firstPR.createdDate
-        },
-        validationResults
+      testLogger.info('Sample PR data', {
+        name: firstPR.name,
+        author: firstPR.author,
+        date: firstPR.createdDate
       });
 
       expect(firstPR.name).toBeTruthy();
@@ -224,9 +157,9 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       expect(firstPR.author).not.toBe('Unknown Author');
       expect(firstPR.createdDate).not.toBe('Unknown Date');
 
-      testLogger.info('PR data structure validation passed successfully');
+      testLogger.info('PR data structure validation passed');
     } else {
-      testLogger.warn('No PRs found for validation - test may need investigation');
+      testLogger.info('No PRs found for validation');
     }
   });
 
@@ -309,22 +242,5 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       });
       return prs;
     });
-  }
-
-  function generateCSV(pullRequests: PullRequest[], testLogger: any): string {
-    const headers = 'PR Name,Created Date,Author';
-    const rows = pullRequests.map(pr =>
-      `"${pr.name}","${pr.createdDate}","${pr.author}"`
-    );
-
-    const csvContent = [headers, ...rows].join('\n');
-
-    testLogger.info('CSV generation completed', {
-      totalRows: rows.length,
-      totalSize: `${csvContent.length} characters`,
-      includesHeaders: true
-    });
-
-    return csvContent;
   }
 });

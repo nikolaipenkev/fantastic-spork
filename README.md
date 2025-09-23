@@ -130,8 +130,12 @@ Or edit `config/environments.json` (fallback):
 │   ├── test-case-3-login.spec.ts              # Login functionality
 │   └── test-case-4-github-pr.spec.ts          # GitHub PR analysis
 ├── utils/
-│   ├── base-test.ts        # Base test framework with utilities
-│   └── config-manager.ts   # Environment and configuration management
+│   ├── base-test.ts            # Base test framework with fixtures
+│   ├── config-manager.ts       # Environment configuration management
+│   ├── test-logger.ts          # Structured test logging utility
+│   ├── page-helper.ts          # Page navigation and screenshot helper
+│   ├── console-error-helper.ts # Console error detection and analysis
+│   └── index.ts                # Utility exports
 ├── test-outputs/           # Generated CSV files and exports
 ├── test-results/           # Test execution results
 ├── playwright-report/      # HTML test reports

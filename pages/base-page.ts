@@ -69,4 +69,29 @@ export abstract class BasePage {
   getCurrentUrl(): string {
     return this.page.url();
   }
+
+  /**
+   * Check if page has essential elements loaded
+   */
+  async hasEssentialElements(headingSelector?: string, contentSelector?: string): Promise<boolean> {
+    // Default selectors if none provided
+    const defaultHeadingSelector = 'h1, h2, .title, .heading, [class*="title"], [class*="heading"]';
+    const defaultContentSelector = 'main, .content, .main-content, section, article, .container';
+    
+    const headingSel = headingSelector || defaultHeadingSelector;
+    const contentSel = contentSelector || defaultContentSelector;
+    
+    // Check for any heading or title element
+    const hasHeading = await this.page.locator(headingSel).first().isVisible() 
+      || await this.page.locator('body').isVisible();
+    
+    // Check for main content area or basic page structure
+    const hasMainContent = await this.page.locator(contentSel).first().isVisible();
+    
+    // Page is loaded if at least body is visible and has some content
+    const bodyHasContent = await this.page.locator('body').isVisible() && 
+                          await this.page.locator('body *').first().isVisible();
+    
+    return (hasHeading && hasMainContent) || bodyHasContent;
+  }
 }
