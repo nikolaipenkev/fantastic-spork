@@ -46,7 +46,7 @@ npm run test:case1       # Console error detection
 npm run test:case2       # Link validation
 npm run test:case3       # Login functionality
 npm run test:case4       # GitHub PR analysis
-```
+
 
 ## Configuration
 
@@ -118,11 +118,17 @@ Or edit `config/environments.json` (fallback):
 │   └── workflows/           # GitHub Actions CI/CD pipeline
 ├── config/
 │   └── environments.json   # Environment configurations
+├── pages/                   # Page Object Model (POM) classes
+│   ├── base-page.ts        # Base page object with common functionality
+│   ├── home-page.ts        # Homepage page object
+│   ├── login-page.ts       # Login page object
+│   ├── about-page.ts       # About page object
+│   └── index.ts            # Page object exports
 ├── tests/
-│   ├── test-case-1-console-errors.spec.ts
-│   ├── test-case-2-link-validation.spec.ts
-│   ├── test-case-3-login.spec.ts
-│   └── test-case-4-github-pr.spec.ts
+│   ├── test-case-1-console-errors.spec.ts     # Console error detection
+│   ├── test-case-2-link-validation.spec.ts    # Link validation
+│   ├── test-case-3-login.spec.ts              # Login functionality
+│   └── test-case-4-github-pr.spec.ts          # GitHub PR analysis
 ├── utils/
 │   ├── base-test.ts        # Base test framework with utilities
 │   └── config-manager.ts   # Environment and configuration management

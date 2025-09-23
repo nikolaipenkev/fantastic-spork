@@ -9,18 +9,18 @@ interface PullRequest {
 }
 
 test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
-  
-  test('should extract open pull requests and export to CSV format', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
+
+  test('should extract open pull requests and export to CSV format', async ({
+    page,
+    configManager,
+    testLogger,
     pageHelper,
-    networkHelper 
+    networkHelper
   }) => {
     const config = configManager.getConfig();
     const githubUrl = config.github.exampleRepo;
-    
-    testLogger.info('Starting GitHub PR extraction test', { 
+
+    testLogger.info('Starting GitHub PR extraction test', {
       repository: 'appwrite/appwrite',
       url: githubUrl,
       testObjective: 'Extract open PRs and export to CSV with PR name, created date, and author'
@@ -31,7 +31,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     let navSuccess = false;
     let attempt = 0;
     const maxAttempts = 3;
-    
+
     while (!navSuccess && attempt < maxAttempts) {
       try {
         await pageHelper.navigateToUrl(githubUrl);
@@ -47,7 +47,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
         }
       }
     }
-    
+
     // Take screenshot of the page
     await pageHelper.takeScreenshot('github-prs-page');
 
@@ -64,8 +64,8 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
     testLogger.step('Extracting pull request data');
     const pullRequests = await extractPullRequests(page, testLogger);
-    
-    testLogger.info(`Pull request extraction completed`, { 
+
+    testLogger.info(`Pull request extraction completed`, {
       foundPRs: pullRequests.length,
       repository: 'appwrite/appwrite'
     });
@@ -75,19 +75,19 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
     testLogger.step('Generating CSV report');
     const csvContent = generateCSV(pullRequests, testLogger);
-    
+
     testLogger.step('Saving CSV file');
     const outputDir = 'test-outputs';
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const csvFilePath = path.join(outputDir, `appwrite-pull-requests-${timestamp}.csv`);
-    
+
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    
+
     fs.writeFileSync(csvFilePath, csvContent);
-    
+
     testLogger.info('CSV report generated successfully', {
       filePath: csvFilePath,
       totalPRs: pullRequests.length,
@@ -110,16 +110,16 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     // Validate CSV content structure
     expect(csvContent).toContain('PR Name,Created Date,Author');
     expect(csvContent.split('\n').length).toBeGreaterThan(1);
-    
+
     testLogger.info('GitHub PR extraction test completed successfully');
   });
 
-  test('should handle GitHub rate limiting gracefully', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
+  test('should handle GitHub rate limiting gracefully', async ({
+    page,
+    configManager,
+    testLogger,
     pageHelper,
-    networkHelper 
+    networkHelper
   }) => {
     const config = configManager.getConfig();
     const githubUrl = config.github.exampleRepo;
@@ -128,11 +128,11 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
     testLogger.step('Setting up network monitoring for rate limiting detection');
     let rateLimitDetected = false;
-    
+
     page.on('response', response => {
       if (response.status() === 429) {
         rateLimitDetected = true;
-        testLogger.warn('Rate limiting detected', { 
+        testLogger.warn('Rate limiting detected', {
           status: response.status(),
           url: response.url()
         });
@@ -144,16 +144,16 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     let pageLoaded = false;
     let navAttempt = 0;
     const maxNavAttempts = 3;
-    
+
     while (!pageLoaded && navAttempt < maxNavAttempts) {
       try {
         await pageHelper.navigateToUrl(githubUrl, { timeout: 20000 });
         pageLoaded = await page.waitForSelector('body', { timeout: 10000 })
           .then(() => true)
           .catch(() => false);
-        
+
         if (pageLoaded) break;
-        
+
       } catch (error) {
         navAttempt++;
         if (navAttempt < maxNavAttempts) {
@@ -163,7 +163,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
         }
       }
     }
-    
+
     testLogger.info('Rate limiting test results', {
       pageLoaded,
       rateLimitDetected,
@@ -179,11 +179,11 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
     testLogger.info('Rate limiting handling test completed successfully');
   });
 
-  test('should validate PR data structure', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
-    pageHelper 
+  test('should validate PR data structure', async ({
+    page,
+    configManager,
+    testLogger,
+    pageHelper
   }) => {
     const config = configManager.getConfig();
     testLogger.info('Starting PR data structure validation test');
@@ -193,12 +193,12 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
     testLogger.step('Extracting PR data for validation');
     const pullRequests = await extractPullRequests(page, testLogger);
-    
+
     if (pullRequests.length > 0) {
       const firstPR = pullRequests[0];
-      
+
       testLogger.step('Validating PR data structure requirements');
-      
+
       // Validate required fields
       const validationResults = {
         hasName: !!firstPR.name && firstPR.name !== 'Unknown PR',
@@ -223,7 +223,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
       expect(firstPR.name).not.toBe('Unknown PR');
       expect(firstPR.author).not.toBe('Unknown Author');
       expect(firstPR.createdDate).not.toBe('Unknown Date');
-      
+
       testLogger.info('PR data structure validation passed successfully');
     } else {
       testLogger.warn('No PRs found for validation - test may need investigation');
@@ -233,7 +233,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
   async function extractPullRequests(page: any, testLogger: any): Promise<PullRequest[]> {
     return await page.evaluate(() => {
       const pullRequests: PullRequest[] = [];
-      
+
       // Multiple selector strategies for different GitHub layouts
       const prSelectors = [
         '.js-issue-row',
@@ -244,7 +244,7 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
       let prElements: Element[] = [];
       let successfulSelector = '';
-      
+
       for (const selector of prSelectors) {
         prElements = Array.from(document.querySelectorAll(selector));
         if (prElements.length > 0) {
@@ -258,23 +258,23 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
         try {
           // Extract PR title/name
           const titleElement = element.querySelector('a[data-hovercard-type="pull_request"]') ||
-                             element.querySelector('.js-navigation-open') ||
-                             element.querySelector('a[href*="/pull/"]');
-          
+            element.querySelector('.js-navigation-open') ||
+            element.querySelector('a[href*="/pull/"]');
+
           const name = titleElement?.textContent?.trim() || 'Unknown PR';
 
           // Extract author
           const authorElement = element.querySelector('[data-hovercard-type="user"]') ||
-                               element.querySelector('a[href*="github.com/"]:not([href*="/pull/"])') ||
-                               element.querySelector('.author');
-          
+            element.querySelector('a[href*="github.com/"]:not([href*="/pull/"])') ||
+            element.querySelector('.author');
+
           const author = authorElement?.textContent?.trim() || 'Unknown Author';
 
           // Extract creation date
           const dateElement = element.querySelector('relative-time') ||
-                             element.querySelector('time') ||
-                             element.querySelector('[datetime]');
-          
+            element.querySelector('time') ||
+            element.querySelector('[datetime]');
+
           let createdDate = 'Unknown Date';
           if (dateElement) {
             const datetime = dateElement.getAttribute('datetime');
@@ -313,18 +313,18 @@ test.describe('Test Case 4: GitHub Pull Request Analysis', () => {
 
   function generateCSV(pullRequests: PullRequest[], testLogger: any): string {
     const headers = 'PR Name,Created Date,Author';
-    const rows = pullRequests.map(pr => 
+    const rows = pullRequests.map(pr =>
       `"${pr.name}","${pr.createdDate}","${pr.author}"`
     );
-    
+
     const csvContent = [headers, ...rows].join('\n');
-    
+
     testLogger.info('CSV generation completed', {
       totalRows: rows.length,
       totalSize: `${csvContent.length} characters`,
       includesHeaders: true
     });
-    
+
     return csvContent;
   }
 });

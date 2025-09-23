@@ -1,262 +1,144 @@
 import { test, expect } from '../utils/base-test';
+import { LoginPage } from '../pages/login-page';
+import { HomePage } from '../pages/home-page';
 
 test.describe('Test Case 3: Login Functionality Testing', () => {
-  
-  test('should successfully login with valid credentials', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
-    pageHelper 
+
+  test('should successfully login with valid credentials', async ({
+    page,
+    configManager,
+    testLogger,
+    pageHelper
   }) => {
     const config = configManager.getConfig();
     const environment = configManager.getCurrentEnvironment();
     const credentials = config.credentials.demo;
-    
+
     testLogger.info('Starting valid login test', {
       environment: environment.name,
       loginUrl: `${environment.baseUrl}/login.html`,
       username: credentials.username
     });
 
-    testLogger.step('Navigating to login page');
-    await pageHelper.navigateToUrl(`${environment.baseUrl}/login.html`);
+    // Initialize page objects
+    const loginPage = new LoginPage(page, environment.baseUrl);
 
-    testLogger.step('Taking screenshot before login attempt');
+    testLogger.step('Navigating to login page and taking screenshot');
+    await loginPage.navigate();
     await pageHelper.takeScreenshot('before-login');
 
-    testLogger.step('Locating and filling login form elements');
-    const usernameField = await findLoginField(page, 'username', testLogger);
-    const passwordField = await findLoginField(page, 'password', testLogger);
-    const loginButton = await findLoginButton(page, testLogger);
+    testLogger.step('Verifying login form elements are present');
+    const hasFormElements = await loginPage.hasFormElements();
+    expect(hasFormElements).toBeTruthy();
 
-    testLogger.step('Filling in credentials');
-    await pageHelper.fillInput(usernameField, credentials.username);
-    await pageHelper.fillInput(passwordField, credentials.password);
-
-    testLogger.step('Taking screenshot with filled form');
-    await pageHelper.takeScreenshot('login-form-filled');
-
-    testLogger.step('Submitting login form');
-    await pageHelper.clickElement(loginButton);
-
-    // Wait for navigation or response - use condition-based wait
-    await Promise.race([
-      page.waitForURL(/account/, { timeout: 5000 }), // Wait for redirect to account page
-      page.waitForSelector('[data-testid="error-message"], .error, .alert', { timeout: 5000 }), // Wait for error message
-      page.waitForLoadState('networkidle', { timeout: 5000 }) // Fallback: wait for network to be idle
-    ]).catch(() => {
-      // If none of the conditions are met, continue anyway
-      testLogger.warn('No specific post-login condition detected, proceeding with verification');
-    });
-
-    testLogger.step('Taking screenshot after login attempt');
+    testLogger.step('Performing login with valid credentials');
+    await loginPage.login(credentials.username, credentials.password);
     await pageHelper.takeScreenshot('after-login');
 
     testLogger.step('Verifying successful login');
-    await verifySuccessfulLogin(page, testLogger);
-    
+    const isLoginSuccessful = await loginPage.isLoginSuccessful();
+    expect(isLoginSuccessful).toBeTruthy();
+
     testLogger.info('Valid login test completed successfully');
   });
 
-  test('should handle invalid credentials appropriately', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
-    pageHelper 
+  test('should handle invalid credentials appropriately', async ({
+    page,
+    configManager,
+    testLogger,
+    pageHelper
   }) => {
     const environment = configManager.getCurrentEnvironment();
     testLogger.info('Starting invalid login credentials test');
 
-    testLogger.step('Navigating to login page');
-    await pageHelper.navigateToUrl(`${environment.baseUrl}/login.html`);
+    // Initialize page objects
+    const loginPage = new LoginPage(page, environment.baseUrl);
 
-    testLogger.step('Locating login form elements');
-    const usernameField = await findLoginField(page, 'username', testLogger);
-    const passwordField = await findLoginField(page, 'password', testLogger);
-    const loginButton = await findLoginButton(page, testLogger);
+    testLogger.step('Navigating to login page');
+    await loginPage.navigate();
 
     testLogger.step('Attempting login with invalid credentials');
-    await pageHelper.fillInput(usernameField, 'invaliduser');
-    await pageHelper.fillInput(passwordField, 'wrongpassword');
-
-    await pageHelper.clickElement(loginButton);
-    
-    // Wait for login attempt to be processed - use condition-based wait
-    await Promise.race([
-      page.waitForSelector('[data-testid="error-message"], .error, .alert', { timeout: 3000 }), // Wait for error message
-      page.waitForURL(/login/, { timeout: 3000 }), // Wait to confirm still on login page
-      page.waitForLoadState('networkidle', { timeout: 3000 }) // Fallback network wait
-    ]).catch(() => {
-      // Continue if no specific condition is met
-    });
+    await loginPage.login('invaliduser', 'wrongpassword');
+    await pageHelper.takeScreenshot('invalid-login-attempt');
 
     testLogger.step('Verifying login failure handling');
-    const currentUrl = page.url();
-    const isStillOnLoginPage = currentUrl.includes('login') || 
-                              await page.locator('input[type="password"]').isVisible();
-    
-    testLogger.info('Invalid login verification results', {
-      currentUrl,
-      stillOnLoginPage: isStillOnLoginPage
-    });
+    const isLoginSuccessful = await loginPage.isLoginSuccessful();
+    expect(isLoginSuccessful).toBeFalsy();
 
-    // Should either stay on login page or show error message
-    const hasErrorMessage = await page.locator('text=/error|invalid|incorrect|failed/i').isVisible().catch(() => false);
-    
-    if (hasErrorMessage) {
-      testLogger.info('Error message detected for invalid login');
-      await pageHelper.takeScreenshot('invalid-login-error-message');
+    // Check for error message if present
+    const errorMessage = await loginPage.getErrorMessage();
+    if (errorMessage) {
+      testLogger.info('Error message detected', { message: errorMessage });
     }
-    
-    expect(isStillOnLoginPage || hasErrorMessage).toBeTruthy();
+
     testLogger.info('Invalid credentials test completed successfully');
   });
 
-  test('should validate login form elements exist', async ({ 
-    page, 
-    configManager, 
-    testLogger, 
-    pageHelper 
+  test('should validate login form elements exist', async ({
+    page,
+    configManager,
+    testLogger,
+    pageHelper
   }) => {
     const environment = configManager.getCurrentEnvironment();
     testLogger.info('Starting login form validation test');
 
+    // Initialize page objects
+    const loginPage = new LoginPage(page, environment.baseUrl);
+
     testLogger.step('Navigating to login page');
-    await pageHelper.navigateToUrl(`${environment.baseUrl}/login.html`);
+    await loginPage.navigate();
 
     testLogger.step('Validating essential form elements exist');
-    const usernameField = await findLoginField(page, 'username', testLogger);
-    const passwordField = await findLoginField(page, 'password', testLogger);
-    const loginButton = await findLoginButton(page, testLogger);
+    const hasFormElements = await loginPage.hasFormElements();
+    expect(hasFormElements).toBeTruthy();
 
-    expect(usernameField).toBeTruthy();
-    expect(passwordField).toBeTruthy();
-    expect(loginButton).toBeTruthy();
-
-    testLogger.step('Verifying form elements are interactive');
-    await expect(page.locator(usernameField).first()).toBeVisible();
-    await expect(page.locator(usernameField).first()).toBeEditable();
-    await expect(page.locator(passwordField).first()).toBeVisible();
-    await expect(page.locator(passwordField).first()).toBeEditable();
-    await expect(page.locator(loginButton).first()).toBeVisible();
-    await expect(page.locator(loginButton).first()).toBeEnabled();
-
-    testLogger.info('All login form elements are present and interactive');
     await pageHelper.takeScreenshot('login-form-validation');
+    testLogger.info('All login form elements are present and accessible');
     testLogger.info('Login form validation test completed successfully');
   });
 
-  async function findLoginField(page: any, fieldType: 'username' | 'password', testLogger: any) {
-    const selectors = fieldType === 'username' 
-      ? [
-          '#username',
-          'input[name="username"]',
-          'input[id="username"]',
-          'input[placeholder*="username" i]',
-          'input[placeholder*="user" i]',
-          'input[type="text"]'
-        ]
-      : [
-          '#password',
-          'input[name="password"]',
-          'input[id="password"]',
-          'input[type="password"]',
-          'input[placeholder*="password" i]'
-        ];
+  test('should navigate to login page from home page', async ({
+    page,
+    configManager,
+    testLogger,
+    pageHelper
+  }) => {
+    const environment = configManager.getCurrentEnvironment();
+    testLogger.info('Starting navigation test from home to login');
 
-    for (const selector of selectors) {
-      try {
-        const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 3000 })) {
-          testLogger.info(`Found ${fieldType} field`, { selector });
-          return selector; // Return the selector string, not the element
-        }
-      } catch (error) {
-        // Continue to next selector
-      }
-    }
+    // Initialize page objects
+    const homePage = new HomePage(page, environment.baseUrl);
+    const loginPage = new LoginPage(page, environment.baseUrl);
 
-    testLogger.error(`Could not find ${fieldType} field`, { attemptedSelectors: selectors });
-    throw new Error(`Could not find ${fieldType} field`);
-  }
+    testLogger.step('Starting from home page');
+    await homePage.navigate();
 
-  async function findLoginButton(page: any, testLogger: any) {
-    const selectors = [
-      'input[type="submit"]',
-      'input[value="Login"]',
-      'button[type="submit"]',
-      'button:has-text("login")',
-      'button:has-text("Login")',
-      '.login-btn',
-      '#login-btn',
-      'button'
-    ];
+    testLogger.step('Navigating to account/login page via home page link');
+    await homePage.goToLogin(); // This will click Account link
 
-    for (const selector of selectors) {
-      try {
-        const element = page.locator(selector).first();
-        if (await element.isVisible({ timeout: 3000 })) {
-          testLogger.info('Found login button', { selector });
-          return selector; // Return the selector string, not the element
-        }
-      } catch (error) {
-        // Continue to next selector
-      }
-    }
-
-    testLogger.error('Could not find login button', { attemptedSelectors: selectors });
-    throw new Error('Could not find login button');
-  }
-
-  async function verifySuccessfulLogin(page: any, testLogger: any) {
+    testLogger.step('Verifying we reached a login-capable page');
+    // Check if we're on login page or account page that has login functionality
     const currentUrl = page.url();
-    testLogger.info('Starting login verification', { postLoginUrl: currentUrl });
+    const isOnLoginOrAccountPage = currentUrl.includes('login') || currentUrl.includes('account');
+    expect(isOnLoginOrAccountPage).toBeTruthy();
 
-    // Multiple ways to verify successful login
-    const loginIndicators = [
-      // URL-based checks
-      () => !currentUrl.includes('login.html'),
-      () => currentUrl.includes('dashboard') || currentUrl.includes('home') || currentUrl.includes('profile'),
-      
-      // Content-based checks
-      async () => {
-        const welcomeElements = await page.locator('text=/welcome|hello|dashboard|logout|profile|account/i').count();
-        return welcomeElements > 0;
-      },
-      
-      // Form absence check
-      async () => {
-        const loginFormExists = await page.locator('input[type="password"]').isVisible().catch(() => false);
-        return !loginFormExists;
-      },
-      
-      // Navigation/menu check
-      async () => {
-        const navElements = await page.locator('nav, .navbar, .menu, .navigation').count();
-        return navElements > 0;
+    // If we're on account page, try to find login elements there
+    if (currentUrl.includes('account')) {
+      // Account page might have login form or redirect to login
+      const hasFormElements = await loginPage.hasFormElements();
+      if (hasFormElements) {
+        testLogger.info('Found login form on account page');
+      } else {
+        testLogger.info('Account page loaded, login form may be on dedicated login page');
       }
-    ];
-
-    let successIndicators = 0;
-    const results = [];
-
-    for (let i = 0; i < loginIndicators.length; i++) {
-      try {
-        const result = await loginIndicators[i]();
-        results.push({ indicator: i + 1, result, passed: result });
-        if (result) successIndicators++;
-      } catch (error: any) {
-        results.push({ indicator: i + 1, result: false, error: error?.message, passed: false });
-      }
+    } else {
+      // We're on login page, verify form elements
+      const hasFormElements = await loginPage.hasFormElements();
+      expect(hasFormElements).toBeTruthy();
     }
 
-    testLogger.info('Login verification analysis', {
-      successIndicators: `${successIndicators}/${loginIndicators.length}`,
-      detailedResults: results,
-      verificationPassed: successIndicators >= 2
-    });
-
-    // Consider login successful if at least 2 indicators pass
-    expect(successIndicators).toBeGreaterThanOrEqual(2);
-  }
+    await pageHelper.takeScreenshot('navigation-from-home');
+    testLogger.info('Navigation test completed successfully');
+  });
 });
